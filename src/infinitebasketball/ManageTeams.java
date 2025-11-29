@@ -15,13 +15,14 @@ public class ManageTeams extends JPanel {
     
     // Player Inputs
     private JTextField txtPFirst, txtPLast;
-    // Removed cmbTeamSelect because we now use the table selection
     private JButton btnAddPlayer, btnDelPlayer; 
+    
+    // Team Stats Labels
+    private JLabel lblTeamStats;
 
     public ManageTeams() {
         initComponents();
         loadTeams();
-        // We don't load players initially; we wait for a team selection
         Theme.apply(this);
     }
 
@@ -32,7 +33,7 @@ public class ManageTeams extends JPanel {
         JPanel teamPanel = new JPanel(new BorderLayout());
         teamPanel.setBorder(BorderFactory.createTitledBorder(
                 BorderFactory.createLineBorder(Theme.PRIMARY, 1), 
-                "TEAMS (Select a team to view/edit roster)", 
+                "TEAMS (Select a team to view roster & stats)", 
                 0, 0, 
                 Theme.FONT_BOLD, 
                 Theme.ACCENT));
@@ -41,10 +42,10 @@ public class ManageTeams extends JPanel {
         teamModel = new DefaultTableModel(teamCols, 0);
         teamTable = new JTable(teamModel);
         
-        // ADD LISTENER: When user clicks a team, load that team's players
+        // Listener: When user clicks a team, load that team's players AND stats
         teamTable.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
-                loadPlayersForSelectedTeam();
+                loadTeamDetails();
             }
         });
 
@@ -64,17 +65,26 @@ public class ManageTeams extends JPanel {
         teamInputPanel.add(btnDelTeam);
         teamPanel.add(teamInputPanel, BorderLayout.SOUTH);
 
-        // --- BOTTOM PANEL: PLAYERS (DETAIL) ---
+        // --- BOTTOM PANEL: ROSTER & STATS (DETAIL) ---
         JPanel playerPanel = new JPanel(new BorderLayout());
         playerPanel.setBorder(BorderFactory.createTitledBorder(
                 BorderFactory.createLineBorder(Theme.PRIMARY, 1), 
-                "ROSTER (Players on selected team)", 
+                "TEAM ROSTER & PERFORMANCE", 
                 0, 0, 
                 Theme.FONT_BOLD, 
                 Theme.ACCENT));
         
-        // Removed 'Team ID' column since it's redundant here
-        String[] playerCols = {"Player ID", "First Name", "Last Name"};
+        // Info Panel for Team Aggregate Stats
+        JPanel statsInfoPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 10));
+        statsInfoPanel.setBackground(Theme.BACKGROUND);
+        lblTeamStats = new JLabel("Select a team to see total stats...");
+        lblTeamStats.setFont(Theme.FONT_BOLD);
+        lblTeamStats.setForeground(Theme.PRIMARY);
+        statsInfoPanel.add(lblTeamStats);
+        playerPanel.add(statsInfoPanel, BorderLayout.NORTH);
+        
+        // Updated Player Columns to include Stats
+        String[] playerCols = {"ID", "First Name", "Last Name", "GP", "PTS", "REB", "AST"};
         playerModel = new DefaultTableModel(playerCols, 0);
         playerTable = new JTable(playerModel);
         playerPanel.add(new JScrollPane(playerTable), BorderLayout.CENTER);
@@ -85,7 +95,6 @@ public class ManageTeams extends JPanel {
         btnAddPlayer = new JButton("Add Player");
         btnDelPlayer = new JButton("Delete Player");
         
-        // Disable player inputs until a team is picked
         togglePlayerInputs(false);
         
         playerInputPanel.add(new JLabel("First:"));
@@ -128,22 +137,63 @@ public class ManageTeams extends JPanel {
         } catch (SQLException e) { e.printStackTrace(); }
     }
 
-    private void loadPlayersForSelectedTeam() {
+    private void loadTeamDetails() {
         int row = teamTable.getSelectedRow();
         if (row == -1) {
-            playerModel.setRowCount(0); // Clear table
-            togglePlayerInputs(false);  // Disable buttons
+            playerModel.setRowCount(0); 
+            lblTeamStats.setText("Select a team to see total stats...");
+            togglePlayerInputs(false);  
             return;
         }
 
-        // Enable inputs now that a team is selected
         togglePlayerInputs(true);
         
-        int teamID = (int) teamModel.getValueAt(row, 0); // Get ID from selected row
+        int teamID = (int) teamModel.getValueAt(row, 0); 
+        String teamName = (String) teamModel.getValueAt(row, 1);
         
-        playerModel.setRowCount(0);
+        // 1. Calculate Team Totals
+        // We sum up stats from all players on this team across all games
+        String sqlTeamStats = "SELECT " +
+                              "SUM(s.Points) as TotalPts, " +
+                              "SUM(s.Rebounds) as TotalReb, " +
+                              "SUM(s.Assists) as TotalAst, " +
+                              "COUNT(DISTINCT s.GameID) as GamesPlayed " +
+                              "FROM PlayerStats s " +
+                              "JOIN Player p ON s.PlayerID = p.PlayerID " +
+                              "WHERE p.TeamID = ?";
+                              
         try (Connection con = DBConnection.connect();
-             PreparedStatement pstmt = con.prepareStatement("SELECT * FROM Player WHERE TeamID = ?")) {
+             PreparedStatement pstmt = con.prepareStatement(sqlTeamStats)) {
+            
+            pstmt.setInt(1, teamID);
+            ResultSet rs = pstmt.executeQuery();
+            
+            if (rs.next()) {
+                int pts = rs.getInt("TotalPts");
+                int reb = rs.getInt("TotalReb");
+                int ast = rs.getInt("TotalAst");
+                int gp = rs.getInt("GamesPlayed");
+                
+                // Update the Label
+                lblTeamStats.setText(String.format("STATS FOR %s:  Games: %d  |  Points: %d  |  Rebounds: %d  |  Assists: %d", 
+                        teamName.toUpperCase(), gp, pts, reb, ast));
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
+
+        // 2. Load Roster with Individual Stats
+        playerModel.setRowCount(0);
+        String sqlRoster = "SELECT p.PlayerID, p.FirstName, p.LastName, " +
+                           "COUNT(s.GameID) as GP, " +
+                           "COALESCE(SUM(s.Points), 0) as PTS, " +
+                           "COALESCE(SUM(s.Rebounds), 0) as REB, " +
+                           "COALESCE(SUM(s.Assists), 0) as AST " +
+                           "FROM Player p " +
+                           "LEFT JOIN PlayerStats s ON p.PlayerID = s.PlayerID " +
+                           "WHERE p.TeamID = ? " +
+                           "GROUP BY p.PlayerID, p.FirstName, p.LastName";
+                           
+        try (Connection con = DBConnection.connect();
+             PreparedStatement pstmt = con.prepareStatement(sqlRoster)) {
             
             pstmt.setInt(1, teamID);
             ResultSet rs = pstmt.executeQuery();
@@ -152,7 +202,11 @@ public class ManageTeams extends JPanel {
                 playerModel.addRow(new Object[]{
                     rs.getInt("PlayerID"),
                     rs.getString("FirstName"),
-                    rs.getString("LastName")
+                    rs.getString("LastName"),
+                    rs.getInt("GP"),
+                    rs.getInt("PTS"),
+                    rs.getInt("REB"),
+                    rs.getInt("AST")
                 });
             }
         } catch (SQLException e) { e.printStackTrace(); }
@@ -177,18 +231,17 @@ public class ManageTeams extends JPanel {
             return;
         }
         
-        // Auto-detect Team ID from the selection
         int teamID = (int) teamModel.getValueAt(row, 0);
 
         try (Connection con = DBConnection.connect();
              PreparedStatement pstmt = con.prepareStatement("INSERT INTO Player (FirstName, LastName, TeamID) VALUES (?, ?, ?)")) {
             pstmt.setString(1, txtPFirst.getText());
             pstmt.setString(2, txtPLast.getText());
-            pstmt.setInt(3, teamID); // Use the detected ID
+            pstmt.setInt(3, teamID); 
             pstmt.executeUpdate();
             
             txtPFirst.setText(""); txtPLast.setText("");
-            loadPlayersForSelectedTeam(); // Refresh only the roster part
+            loadTeamDetails(); 
             JOptionPane.showMessageDialog(this, "Player Added!");
         } catch (SQLException e) { e.printStackTrace(); }
     }
@@ -200,7 +253,8 @@ public class ManageTeams extends JPanel {
         try (Connection con = DBConnection.connect(); PreparedStatement p = con.prepareStatement("DELETE FROM Team WHERE TeamID=?")) {
             p.setInt(1, id); p.executeUpdate(); 
             loadTeams(); 
-            playerModel.setRowCount(0); // Clear players view since team is gone
+            playerModel.setRowCount(0); 
+            lblTeamStats.setText("Select a team...");
         } catch (SQLException e) { JOptionPane.showMessageDialog(this, "Cannot delete team with players!"); }
     }
 
@@ -210,7 +264,7 @@ public class ManageTeams extends JPanel {
         int id = (int) playerModel.getValueAt(row, 0);
         try (Connection con = DBConnection.connect(); PreparedStatement p = con.prepareStatement("DELETE FROM Player WHERE PlayerID=?")) {
             p.setInt(1, id); p.executeUpdate(); 
-            loadPlayersForSelectedTeam(); // Refresh list
+            loadTeamDetails(); 
         } catch (SQLException e) { e.printStackTrace(); }
     }
 }

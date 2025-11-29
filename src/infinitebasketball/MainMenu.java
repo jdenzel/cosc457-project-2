@@ -36,33 +36,42 @@ public class MainMenu extends JFrame {
 
         // Sidebar
         JPanel menuPanel = new JPanel();
-        menuPanel.setLayout(new GridLayout(11, 1, 5, 5)); // Increased row count
+        // Reduced row count since we removed a button
+        menuPanel.setLayout(new GridLayout(11, 1, 5, 5)); 
         menuPanel.setPreferredSize(new Dimension(240, 800));
         menuPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10)); 
 
+        // --- BUTTON CREATION ---
         JButton btnHome = createNavButton("Dashboard");
-        JButton btnWorkers = createNavButton("Workers");
-        JButton btnTeams = createNavButton("Teams & Rosters");
-        JButton btnSchedule = createNavButton("Schedule");
-        JButton btnStaffing = createNavButton("Staff Assignments");
-        JButton btnPlayerStats = createNavButton("Player Stats"); // NEW BUTTON
-        JButton btnScores = createNavButton("Game Scores");
         JButton btnReports = createNavButton("View Reports");
+        JButton btnSchedule = createNavButton("Schedule");
+        JButton btnScores = createNavButton("Game Scores");
+        JButton btnTeams = createNavButton("Teams & Rosters");
         
-        JButton btnExit = new JButton("Logout");
+        // Separator
+        JSeparator separator = new JSeparator();
+        separator.setForeground(Color.GRAY);
+        
+        JButton btnWorkers = createNavButton("Workers");
+        // Removed btnStaffing
+        
+        JButton btnExit = new JButton("Exit");
         btnExit.setBackground(new Color(150, 0, 0)); 
         btnExit.setForeground(Color.WHITE);
 
+        // --- ADDING TO MENU ---
         menuPanel.add(btnHome);
-        menuPanel.add(btnWorkers);
-        menuPanel.add(btnTeams);
-        menuPanel.add(btnSchedule);
-        menuPanel.add(btnStaffing);
-        menuPanel.add(btnPlayerStats); // ADDED HERE
-        menuPanel.add(btnScores);
         menuPanel.add(btnReports);
-        menuPanel.add(new JLabel("")); 
-        menuPanel.add(new JLabel("")); 
+        menuPanel.add(btnSchedule);
+        menuPanel.add(btnScores);
+        menuPanel.add(btnTeams);
+        
+        menuPanel.add(new JLabel("----------------------------", SwingConstants.CENTER));
+        
+        menuPanel.add(btnWorkers);
+        
+        menuPanel.add(new JLabel("")); // Spacer
+        menuPanel.add(new JLabel("")); // Spacer
         menuPanel.add(btnExit);
 
         add(menuPanel, BorderLayout.WEST);
@@ -73,25 +82,22 @@ public class MainMenu extends JFrame {
         centerPanel.setBorder(BorderFactory.createLineBorder(Theme.ACCENT, 1)); 
 
         centerPanel.add(createHomeCard(), "HOME");
-        centerPanel.add(new ManageWorkers(), "WORKERS");
-        centerPanel.add(new ManageTeams(), "TEAMS");
-        centerPanel.add(new ManageSchedule(), "SCHEDULE");
-        centerPanel.add(new AssignStaff(), "STAFFING");
-        centerPanel.add(new ManagePlayerStats(), "PLAYER_STATS"); // ADDED HERE
-        centerPanel.add(new UpdateScore(), "SCORES");
         centerPanel.add(new ViewReports(), "REPORTS");
-
+        centerPanel.add(new ManageSchedule(), "SCHEDULE");
+        centerPanel.add(new UpdateScore(), "SCORES");
+        centerPanel.add(new ManageTeams(), "TEAMS");
+        centerPanel.add(new ManageWorkers(), "WORKERS");
+        // Removed AssignStaff card
+        
         add(centerPanel, BorderLayout.CENTER);
 
         // Listeners
         btnHome.addActionListener(e -> { cardLayout.show(centerPanel, "HOME"); updateMenuColors(btnHome); });
-        btnWorkers.addActionListener(e -> { cardLayout.show(centerPanel, "WORKERS"); updateMenuColors(btnWorkers); });
-        btnTeams.addActionListener(e -> { cardLayout.show(centerPanel, "TEAMS"); updateMenuColors(btnTeams); });
-        btnSchedule.addActionListener(e -> { cardLayout.show(centerPanel, "SCHEDULE"); updateMenuColors(btnSchedule); });
-        btnStaffing.addActionListener(e -> { cardLayout.show(centerPanel, "STAFFING"); updateMenuColors(btnStaffing); });
-        btnPlayerStats.addActionListener(e -> { cardLayout.show(centerPanel, "PLAYER_STATS"); updateMenuColors(btnPlayerStats); });
-        btnScores.addActionListener(e -> { cardLayout.show(centerPanel, "SCORES"); updateMenuColors(btnScores); });
         btnReports.addActionListener(e -> { cardLayout.show(centerPanel, "REPORTS"); updateMenuColors(btnReports); });
+        btnSchedule.addActionListener(e -> { cardLayout.show(centerPanel, "SCHEDULE"); updateMenuColors(btnSchedule); });
+        btnScores.addActionListener(e -> { cardLayout.show(centerPanel, "SCORES"); updateMenuColors(btnScores); });
+        btnTeams.addActionListener(e -> { cardLayout.show(centerPanel, "TEAMS"); updateMenuColors(btnTeams); });
+        btnWorkers.addActionListener(e -> { cardLayout.show(centerPanel, "WORKERS"); updateMenuColors(btnWorkers); });
         
         btnExit.addActionListener(e -> System.exit(0));
     }
